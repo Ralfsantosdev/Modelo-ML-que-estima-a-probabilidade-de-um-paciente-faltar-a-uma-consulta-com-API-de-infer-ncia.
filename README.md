@@ -1,5 +1,3 @@
-# Modelo-ML-que-estima-a-probabilidade-de-um-paciente-faltar-a-uma-consulta-com-API-de-infer-ncia.
-
 # Previsão de não comparecimento (no-show) em consultas
 
 Modelo que estima a probabilidade de um paciente faltar a uma consulta, com API de inferência.

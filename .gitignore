@@ -1,0 +1,8 @@
+.venv/
+.venv.bak/
+__pycache__/
+*.pyc
+.pytest_cache/
+mlflow.db
+mlruns/
+data/*.csv

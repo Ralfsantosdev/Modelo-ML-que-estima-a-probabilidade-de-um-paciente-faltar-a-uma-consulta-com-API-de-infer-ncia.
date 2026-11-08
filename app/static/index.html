@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Previsão de Não Comparecimento</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f3eee3'/%3E%3Ctext x='16' y='23' font-size='22' font-family='Georgia' text-anchor='middle' fill='%23bf3b22'%3E%23%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3eee3;
+    --paper-deep: #eae3d3;
+    --ink: #211c16;
+    --ink-soft: #6b6357;
+    --rule: #cfc6b2;
+    --vermelho: #bf3b22;
+    --verde: #2f6b4f;
+    --stamp: #bf3b22;
+    --display: "Fraunces", Georgia, serif;
+    --mono: "IBM Plex Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .folha { max-width: 1180px; margin: 0 auto; padding: 40px 28px 64px; }
+
+  /* ---------- cabeçalho ---------- */
+  header {
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 22px;
+    margin-bottom: 8px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;
+    animation: surge .7s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .cabeca-esq h1 {
+    font-family: var(--display);
+    font-weight: 560;
+    font-size: clamp(34px, 5vw, 58px);
+    letter-spacing: -0.03em;
+    line-height: 0.98;
+  }
+  .cabeca-esq h1 em { font-style: italic; font-weight: 400; color: var(--vermelho); }
+  .selo-org {
+    margin-top: 10px;
+    font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .orgulo {
+    text-align: right; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .orgulo strong { display: block; color: var(--ink); font-weight: 600; font-size: 13px; letter-spacing: .08em; }
+  .orgulo .lacre {
+    display: inline-block; margin-top: 8px; padding: 3px 10px;
+    border: 1.5px solid var(--ink); border-radius: 2px;
+    transform: rotate(-1.2deg); font-weight: 600;
+  }
+
+  .linha-estado {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+    padding: 10px 2px 26px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 30px;
+    animation: surge .7s .08s cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  /* ---------- grade ---------- */
+  .grade { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 44px; }
+  @media (max-width: 900px) { .grade { grid-template-columns: 1fr; gap: 36px; } }
+
+  .sec-titulo {
+    font-family: var(--display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em;
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;
+  }
+  .sec-titulo .num {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .2em;
+    color: var(--vermelho); border: 1.5px solid currentColor; padding: 2px 7px; border-radius: 2px;
+    transform: translateY(-3px);
+  }
+  .sec-sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 26px; max-width: 52ch; }
+
+  /* ---------- formulário (ficha) ---------- */
+  fieldset { border: none; animation: surge .7s .16s cubic-bezier(.2,.8,.2,1) both; }
+  .campos { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4px 28px; }
+  .campo { padding: 10px 0 6px; border-bottom: 1px solid var(--rule); position: relative; }
+  .campo.wide { grid-column: 1 / -1; }
+  .campo label {
+    display: block; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .campo label .obg { color: var(--vermelho); }
+  .campo input, .campo select {
+    width: 100%; border: none; background: transparent; color: var(--ink);
+    font-family: var(--mono); font-size: 15px; font-weight: 500; padding: 2px 0 4px;
+    border-radius: 0; outline: none; appearance: none; -webkit-appearance: none;
+  }
+  .campo select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23211c16'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 2px center; }
+  .campo input:focus, .campo select:focus { background: #fffdf7; box-shadow: 0 0 0 3px #fffdf7, 0 1px 0 0 var(--vermelho); }
+  .campo:focus-within label { color: var(--vermelho); }
+  .campo .nota { position: absolute; right: 0; top: 10px; font-size: 10px; color: var(--ink-soft); letter-spacing: .06em; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 6px; }
+  .chip { position: relative; }
+  .chip input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .chip span {
+    display: inline-block; padding: 5px 13px; border: 1.5px solid var(--rule);
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+    border-radius: 999px; transition: all .18s ease; user-select: none;
+  }
+  .chip input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .chip input:focus-visible + span { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+
+  .acoes { margin-top: 34px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  button[type="submit"] {
+    font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+    background: var(--ink); color: var(--paper); border: none; padding: 14px 34px;
+    cursor: pointer; position: relative; transition: transform .16s ease, background .16s ease;
+    box-shadow: 4px 4px 0 var(--vermelho);
+  }
+  button[type="submit"]:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--vermelho); background: #000; }
+  button[type="submit"]:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--vermelho); }
+  button[type="submit"]:disabled { opacity: .55; cursor: wait; }
+  .btn-fantasma {
+    background: none; border: none; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
+  }
+  .btn-fantasma:hover { color: var(--vermelho); }
+
+  /* ---------- laudo ---------- */
+  .laudo {
+    position: sticky; top: 24px;
+    background: #fffdf7;
+    border: 1.5px solid var(--ink);
+    box-shadow: 8px 8px 0 rgba(33,28,22,.14);
+    padding: 26px 26px 30px;
+    min-height: 420px;
+    display: flex; flex-direction: column;
+    animation: surge .7s .24s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .laudo-cabeca {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-soft);
+    border-bottom: 1px dashed var(--rule); padding-bottom: 12px; margin-bottom: 22px;
+  }
+  .laudo-cabeca b { color: var(--ink); font-weight: 600; }
+
+  .vazio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--ink-soft); text-align: center; }
+  .vazio .marca {
+    font-family: var(--display); font-style: italic; font-size: 46px; color: var(--rule); font-weight: 400;
+  }
+  .vazio p { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; max-width: 30ch; }
+
+  .resultado { display: none; flex: 1; flex-direction: column; }
+  .resultado.on { display: flex; }
+  .prob-linha { display: flex; align-items: flex-end; gap: 14px; }
+  .prob-num {
+    font-family: var(--display); font-weight: 640; font-size: clamp(72px, 9vw, 104px);
+    line-height: .85; letter-spacing: -0.045em; font-variant-numeric: tabular-nums;
+  }
+  .prob-num .pct { font-size: .38em; font-weight: 500; margin-left: 2px; }
+  .prob-rotulo { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); padding-bottom: 10px; max-width: 12ch; }
+
+  .barra { margin: 26px 0 8px; }
+  .barra-trilho { height: 12px; background: var(--paper-deep); border: 1.5px solid var(--ink); position: relative; }
+  .barra-fill {
+    position: absolute; inset: 0 auto 0 0; width: 0%;
+    background: repeating-linear-gradient(-45deg, var(--vermelho) 0 6px, #d9573f 6px 12px);
+    transition: width .8s cubic-bezier(.2,.8,.2,1);
+  }
+  .barra-marca { position: absolute; top: -7px; bottom: -7px; width: 2px; background: var(--ink); }
+  .barra-marca::after {
+    content: attr(data-l); position: absolute; top: -17px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; letter-spacing: .1em; color: var(--ink-soft); white-space: nowrap;
+  }
+  .barra-eixos { display: flex; justify-content: space-between; font-size: 9px; letter-spacing: .12em; color: var(--ink-soft); margin-top: 8px; text-transform: uppercase; }
+
+  .veredito { margin-top: 30px; display: flex; align-items: center; gap: 18px; }
+  .carimbo {
+    font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .04em;
+    text-transform: uppercase; padding: 10px 18px; border: 3.5px double currentColor;
+    transform: rotate(-6deg); opacity: 0; line-height: 1;
+    animation: carimbar .45s .55s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  .carimbo.risco { color: var(--stamp); }
+  .carimbo.ok { color: var(--verde); }
+  .carimbo small { display: block; font-family: var(--mono); font-size: 9px; font-weight: 500; letter-spacing: .3em; margin-top: 5px; text-align: center; }
+  .veredito-txt { font-size: 11.5px; color: var(--ink-soft); line-height: 1.65; max-width: 26ch; }
+
+  .meta-laudos {
+    margin-top: auto; padding-top: 20px; border-top: 1px dashed var(--rule);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .meta-laudos b { display: block; color: var(--ink); font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: none; margin-top: 2px; }
+
+  .erro {
+    display: none; margin-top: 18px; padding: 12px 14px; border: 1.5px solid var(--vermelho);
+    background: #fdf3ef; color: var(--vermelho); font-size: 12px; line-height: 1.6;
+  }
+  .erro.on { display: block; }
+
+  footer {
+    margin-top: 56px; padding-top: 16px; border-top: 3px double var(--ink);
+    display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  footer a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  footer a:hover { color: var(--vermelho); }
+
+  @keyframes surge { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes carimbar {
+    0% { opacity: 0; transform: rotate(-14deg) scale(2.1); filter: blur(3px); }
+    60% { opacity: 1; filter: blur(0); }
+    100% { opacity: 1; transform: rotate(-6deg) scale(1); filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="folha">
+
+  <header>
+    <div class="cabeca-esq">
+      <h1>Previsão de <em>não&nbsp;comparecimento</em></h1>
+      <div class="selo-org">Ficha de risco · avaliação pré-consulta</div>
+    </div>
+    <div class="orgulo">
+      <strong id="org-modelo">—</strong>
+      <span id="org-dataset">carregando…</span>
+      <span class="lacre">uso interno</span>
+    </div>
+  </header>
+
+  <div class="linha-estado">
+    <span>Formulário nº <b id="num-ficha">—</b></span>
+    <span id="estado-vazio">Preencha os dados da consulta e solicite o laudo</span>
+    <span id="relogio">—</span>
+  </div>
+
+  <div class="grade">
+    <!-- FORMULÁRIO -->
+    <section>
+      <h2 class="sec-titulo"><span class="num">01</span> Dados da consulta</h2>
+      <p class="sec-sub">Campos marcados com <span style="color:var(--vermelho)">*</span> são obrigatórios. Histórico do paciente inclui apenas dias estritamente anteriores à consulta avaliada.</p>
+      <form id="form" novalidate>
+        <fieldset id="campos" class="campos"></fieldset>
+        <div class="acoes">
+          <button type="submit" id="btn">Emitir laudo →</button>
+          <button type="button" class="btn-fantasma" id="btn-reset">limpar ficha</button>
+        </div>
+        <div class="erro" id="erro"></div>
+      </form>
+    </section>
+
+    <!-- LAUDO -->
+    <aside>
+      <h2 class="sec-titulo"><span class="num">02</span> Laudo</h2>
+      <p class="sec-sub">Probabilidade estimada de falta e classificação pelo limiar escolhido na validação.</p>
+      <div class="laudo">
+        <div class="laudo-cabeca">
+          <span>Laudo de risco</span>
+          <b id="laudo-id">em aberto</b>
+        </div>
+
+        <div class="vazio" id="vazio">
+          <div class="marca">∅</div>
+          <p>Aguardando emissão do laudo</p>
+        </div>
+
+        <div class="resultado" id="resultado">
+          <div class="prob-linha">
+            <div class="prob-num" id="prob-num">0<span class="pct">%</span></div>
+            <div class="prob-rotulo">probabilidade de falta</div>
+          </div>
+
+          <div class="barra">
+            <div class="barra-trilho">
+              <div class="barra-fill" id="fill"></div>
+              <div class="barra-marca" id="marca" data-l="limiar"></div>
+            </div>
+            <div class="barra-eixos"><span>0%</span><span>risco ↑</span><span>100%</span></div>
+          </div>
+
+          <div class="veredito">
+            <div class="carimbo" id="carimbo">—</div>
+            <div class="veredito-txt" id="veredito-txt"></div>
+          </div>
+
+          <div class="meta-laudos">
+            <span>Modelo<b id="m-modelo">—</b></span>
+            <span>Limiar<b id="m-limiar">—</b></span>
+            <span>Dataset<b id="m-dataset">—</b></span>
+            <span>Emitido em<b id="m-hora">—</b></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <span>No-show API · <a href="/docs" target="_blank" rel="noopener">documentação /docs</a> · <a href="/schema" target="_blank" rel="noopener">/schema</a></span>
+    <span>Use o escore para reforçar contato — nunca para negar atendimento</span>
+  </footer>
+</div>
+
+<script>
+const ROTULOS = {
+  idade: "Idade", sexo: "Sexo", tipo_consulta: "Tipo de consulta",
+  antecedencia_dias: "Antecedência (dias)", hora_consulta: "Hora da consulta",
+  dia_semana: "Dia da semana", distancia_km: "Distância (km)",
+  bolsa_familia: "Bolsa Família", hipertensao: "Hipertensão",
+  diabetes: "Diabetes", sms_enviado: "SMS enviado",
+  historico_consultas: "Consultas anteriores", historico_faltas: "Faltas anteriores",
+  bairro: "Bairro", alcoolismo: "Alcoolismo", deficiencia: "Deficiência (0–4)",
+  dia_semana_agendamento: "Dia do agendamento", hora_agendamento: "Hora do agendamento"
+};
+const DIAS = ["segunda","terça","quarta","quinta","sexta","sábado","domingo"];
+const NOTAS = { dia_semana: "0=seg", dia_semana_agendamento: "0=seg" };
+const SWITCHES = ["bolsa_familia","hipertensao","diabetes","sms_enviado","alcoolismo"];
+const ORDENAR = ["idade","sexo","tipo_consulta","bairro","antecedencia_dias","hora_consulta",
+  "dia_semana","hora_agendamento","dia_semana_agendamento","distancia_km",
+  "historico_consultas","historico_faltas","bolsa_familia","hipertensao","diabetes",
+  "sms_enviado","alcoolismo","deficiencia"];
+
+let SCHEMA = null;
+
+function rotulo(campo) {
+  if (campo === "dia_semana" || campo === "dia_semana_agendamento") return "Dia da semana";
+  return ROTULOS[campo] || campo.replace(/_/g, " ");
+}
+
+function construirFormulario(schema) {
+  SCHEMA = schema;
+  const box = document.getElementById("campos");
+  const props = schema.properties || {};
+  const req = new Set(schema.required || []);
+  const campos = Object.keys(props).sort((a, b) => {
+    const ia = ORDENAR.indexOf(a), ib = ORDENAR.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  box.innerHTML = "";
+  for (const name of campos) {
+    const p = props[name];
+    const enumVals = p.enum || (p.const !== undefined ? [p.const] : null);
+    const ehDia = name === "dia_semana" || name === "dia_semana_agendamento";
+    const ehChave = SWITCHES.includes(name) && enumVals;
+
+    const wrap = document.createElement("div");
+    wrap.className = "campo";
+    const lab = document.createElement("label");
+    lab.htmlFor = "f_" + name;
+    lab.innerHTML = rotulo(name) + (req.has(name) ? ' <span class="obg">*</span>' : "");
+    wrap.appendChild(lab);
+
+    if (ehChave) {
+      const chips = document.createElement("div");
+      chips.className = "chips";
+      const alvo = p.default !== undefined ? p.default : enumVals[0];
+      for (const v of enumVals) {
+        const id = `f_${name}_${v}`;
+        const lbl = document.createElement("label");
+        lbl.className = "chip"; lbl.htmlFor = id;
+        const inp = document.createElement("input");
+        inp.type = "checkbox"; inp.id = id; inp.value = v;
+        inp.dataset.field = name; inp.dataset.kind = "switch";
+        inp.checked = v === alvo;
+        const sp = document.createElement("span");
+        sp.textContent = v === 1 ? "sim" : (v === 0 ? "não" : String(v));
+        lbl.append(inp, sp);
+        chips.appendChild(lbl);
+      }
+      wrap.appendChild(chips);
+    } else if (ehDia) {
+      const el = document.createElement("select");
+      el.id = "f_" + name; el.name = name;
+      DIAS.forEach((d, i) => {
+        const o = document.createElement("option");
+        o.value = i; o.textContent = `${i} — ${d}`;
+        el.appendChild(o);
+      });
+      if (p.default !== undefined) el.value = p.default;
+      wrap.appendChild(el);
+    } else if (enumVals) {
+      const el = document.createElement("select");
+      el.id = "f_" + name; el.name = name;
+      enumVals.forEach(v => {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = typeof v === "string" ? v.replace(/_/g, " ") : String(v);
+        el.appendChild(o);
+      });
+      if (p.default !== undefined) el.value = p.default;
+      wrap.appendChild(el);
+    } else {
+      const el = document.createElement("input");
+      el.type = p.type === "number" ? "number" : "text";
+      el.id = "f_" + name; el.name = name;
+      if (p.minimum !== undefined) el.min = p.minimum;
+      if (p.maximum !== undefined) el.max = p.maximum;
+      if (p.type === "number" && !Number.isInteger(p.minimum ?? 1)) el.step = "any";
+      const padrao = { idade: 35, antecedencia_dias: 15, hora_consulta: 9,
+                       dia_semana: 0, distancia_km: 8, bairro: "CENTRO" };
+      el.value = p.default !== undefined ? p.default : (padrao[name] ?? "");
+      wrap.appendChild(el);
+    }
+
+    if (NOTAS[name]) {
+      const n = document.createElement("span");
+      n.className = "nota"; n.textContent = NOTAS[name];
+      wrap.appendChild(n);
+    }
+    box.appendChild(wrap);
+  }
+}
+
+function coletar() {
+  const payload = {};
+  const props = SCHEMA.properties;
+  for (const [name, p] of Object.entries(props)) {
+    const enumVals = p.enum || null;
+    if (SWITCHES.includes(name) && enumVals) {
+      const marcado = document.querySelector(`input[data-field="${name}"]:checked`);
+      payload[name] = marcado ? Number(marcado.value) : (p.default ?? enumVals[0]);
+      continue;
+    }
+    const el = document.getElementById("f_" + name);
+    if (!el) continue;
+    let v = el.value;
+    if (p.type === "integer" || p.type === "number") v = v === "" ? (p.default ?? 0) : Number(v);
+    if (enumVals && typeof enumVals[0] === "number") v = Number(v);
+    payload[name] = v;
+  }
+  return payload;
+}
+
+function aplicarPadroes() {
+  document.getElementById("form").reset();
+  // re-marca defaults dos chips
+  document.querySelectorAll('input[data-kind="switch"]').forEach(i => i.checked = false);
+  for (const [name, p] of Object.entries(SCHEMA.properties)) {
+    if (SWITCHES.includes(name) && p.enum) {
+      const alvo = p.default !== undefined ? p.default : p.enum[0];
+      const chk = document.querySelector(`input[data-field="${name}"][value="${alvo}"]`);
+      if (chk) chk.checked = true;
+    }
+  }
+}
+
+function fmtHora(d) {
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function emitir(ev) {
+  ev.preventDefault();
+  const btn = document.getElementById("btn");
+  const erro = document.getElementById("erro");
+  erro.classList.remove("on");
+  btn.disabled = true; btn.textContent = "Calculando…";
+  try {
+    const r = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(coletar())
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      let msg = "Falha ao calcular.";
+      if (Array.isArray(data.detail)) msg = data.detail.map(d => `${(d.loc||[]).slice(1).join(".")}: ${d.msg}`).join(" · ");
+      else if (typeof data.detail === "string") msg = data.detail;
+      else if (data.detail) msg = JSON.stringify(data.detail);
+      throw new Error(msg);
+    }
+    mostrar(data);
+  } catch (e) {
+    erro.textContent = e.message;
+    erro.classList.add("on");
+  } finally {
+    btn.disabled = false; btn.textContent = "Emitir laudo →";
+  }
+}
+
+function mostrar(d) {
+  document.getElementById("vazio").style.display = "none";
+  const res = document.getElementById("resultado");
+  res.classList.add("on");
+  // reinicia animação do carimbo
+  const car = document.getElementById("carimbo");
+  car.style.animation = "none"; void car.offsetWidth; car.style.animation = "";
+
+  const pct = d.probabilidade_falta * 100;
+  const alvo = document.getElementById("prob-num");
+  alvo.innerHTML = `0<span class="pct">%</span>`;
+  requestAnimationFrame(() => {
+    document.getElementById("fill").style.width = pct + "%";
+    document.getElementById("marca").style.left = (d.limiar * 100) + "%";
+    document.getElementById("marca").dataset.l = `limiar ${(d.limiar*100).toFixed(1)}%`;
+    // contador
+    const t0 = performance.now(), dur = 750;
+    (function tick(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      alvo.innerHTML = `${(pct * e).toFixed(1)}<span class="pct">%</span>`;
+      if (k < 1) requestAnimationFrame(tick);
+    })(t0);
+  });
+
+  car.className = "carimbo " + (d.previsao_falta ? "risco" : "ok");
+  car.innerHTML = (d.previsao_falta ? "Falta provável" : "Comparece") +
+    `<small>${d.previsao_falta ? "reforçar contato" : "sem intervenção"}</small>`;
+  document.getElementById("veredito-txt").textContent = d.previsao_falta
+    ? "Risco acima do limiar: priorizar lembrete por SMS/telefone e, se possível, auxílio ao transporte."
+    : "Risco abaixo do limiar: manter o fluxo habitual de confirmação.";
+
+  document.getElementById("m-modelo").textContent = d.modelo.replace(/_/g, " ");
+  document.getElementById("m-limiar").textContent = (d.limiar * 100).toFixed(1) + "%";
+  document.getElementById("m-dataset").textContent = d.dataset;
+  document.getElementById("m-hora").textContent = fmtHora(new Date());
+  const id = String(Math.floor(Math.random() * 9000) + 1000) + "/" + new Date().getFullYear();
+  document.getElementById("laudo-id").textContent = id;
+  document.getElementById("num-ficha").textContent = id;
+}
+
+async function init() {
+  document.getElementById("relogio").textContent = fmtHora(new Date());
+  setInterval(() => document.getElementById("relogio").textContent = fmtHora(new Date()), 30000);
+  try {
+    const [schema, health] = await Promise.all([
+      fetch("/schema").then(r => r.json()),
+      fetch("/health").then(r => r.json())
+    ]);
+    construirFormulario(schema);
+    document.getElementById("org-modelo").textContent = (health.modelo || "").replace(/_/g, " ");
+    document.getElementById("org-dataset").textContent = "dataset " + (health.dataset || "?");
+  } catch (e) {
+    document.getElementById("campos").innerHTML =
+      `<p style="color:var(--vermelho)">Falha ao carregar o esquema da API — a API está rodando?</p>`;
+  }
+}
+
+document.getElementById("form").addEventListener("submit", emitir);
+document.getElementById("btn-reset").addEventListener("click", () => {
+  aplicarPadroes();
+  document.getElementById("resultado").classList.remove("on");
+  document.getElementById("vazio").style.display = "";
+  document.getElementById("laudo-id").textContent = "em aberto";
+  document.getElementById("erro").classList.remove("on");
+});
+init();
+</script>
+</body>
+</html>

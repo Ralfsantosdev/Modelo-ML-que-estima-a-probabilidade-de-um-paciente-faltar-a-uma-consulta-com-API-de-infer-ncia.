@@ -1,0 +1,22 @@
+{
+  "modelo": "logistic_regression",
+  "limiar": 0.44626670162452914,
+  "features": [
+    "idade",
+    "antecedencia_dias",
+    "hora_consulta",
+    "dia_semana",
+    "distancia_km",
+    "bolsa_familia",
+    "hipertensao",
+    "diabetes",
+    "sms_enviado",
+    "historico_consultas",
+    "historico_faltas",
+    "taxa_faltas_previa",
+    "sexo",
+    "tipo_consulta"
+  ],
+  "dataset": "sintetico",
+  "treino_ate": "2024-12-31"
+}
